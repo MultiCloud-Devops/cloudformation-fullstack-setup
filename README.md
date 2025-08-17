@@ -12,7 +12,7 @@
 
 #### Create Change Set
 ```bash
-./deploy.sh changeset database
+./deploy.sh changeset db
 ```
 
 #### Update with confirmation
