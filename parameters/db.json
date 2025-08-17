@@ -1,0 +1,11 @@
+[
+  { "ParameterKey": "EnvironmentName", "ParameterValue": "dev" },
+  { "ParameterKey": "DBName", "ParameterValue": "appdb" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "admin" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "Adminpassword123" },
+  { "ParameterKey": "DBInstanceClass", "ParameterValue": "db.t3.micro" },
+  { "ParameterKey": "AllocatedStorage", "ParameterValue": "20" },
+  { "ParameterKey": "MultiAZ", "ParameterValue": "false" },
+  { "ParameterKey": "EngineVersion", "ParameterValue": "8.0.42" },
+  { "ParameterKey": "AllowedClientCidr", "ParameterValue": "10.1.0.0/16" }
+]

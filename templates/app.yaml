@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ALB + AutoScaling in private subnets, serving simple web page
+
+Parameters:
+  EnvironmentName:
+    Type: String
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+  ImageId:
+    Type: AWS::EC2::Image::Id
+    Description: AMI for app instances (Amazon Linux 2/AL2023)
+  InstanceType:
+    Type: String
+    Default: t3.micro
+  DesiredCapacity:
+    Type: Number
+    Default: 2
+  MinSize:
+    Type: Number
+    Default: 2
+  MaxSize:
+    Type: Number
+    Default: 4
+  DBEndpoint:
+    Type: String
+    Description: MySQL endpoint (import from DB stack output)
+  HealthCheckPath:
+    Type: String
+    Default: "/"
+
+Resources:
+  AlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB security group
+      VpcId: !ImportValue
+        Fn::Sub: "${EnvironmentName}-VPCId"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  AppSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: App instances security group (only from ALB)
+      VpcId: !ImportValue
+        Fn::Sub: "${EnvironmentName}-VPCId"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref AlbSG
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !ImportValue
+        Fn::Sub: "${EnvironmentName}-VPCId"
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckPath: !Ref HealthCheckPath
+
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+        - !ImportValue
+          Fn::Sub: "${EnvironmentName}-PublicSubnet1Id"
+        - !ImportValue
+          Fn::Sub: "${EnvironmentName}-PublicSubnet2Id"
+      SecurityGroups: [!Ref AlbSG]
+
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: false
+            Groups: [!Ref AppSG]
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -eux
+            yum install -y httpd
+            systemctl enable --now httpd
+            cat >/var/www/html/index.html <<'HTML'
+            <html>
+              <head><title>App</title></head>
+              <body>
+                <h1>App up now</h1>
+                <p>DB endpoint: ${DBEndpoint}</p>
+              </body>
+            </html>
+            HTML
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !ImportValue
+          Fn::Sub: "${EnvironmentName}-PrivateSubnet1Id"
+        - !ImportValue
+          Fn::Sub: "${EnvironmentName}-PrivateSubnet2Id"
+      TargetGroupARNs: [!Ref TargetGroup]
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 90
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-app"
+          PropagateAtLaunch: true
+
+Outputs:
+  AlbDNSName:
+    Value: !GetAtt ALB.DNSName
+  AppSecurityGroupId:
+    Value: !Ref AppSG

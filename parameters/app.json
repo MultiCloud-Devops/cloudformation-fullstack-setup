@@ -1,0 +1,11 @@
+[
+  { "ParameterKey": "EnvironmentName", "ParameterValue": "dev" },
+  { "ParameterKey": "KeyPairName", "ParameterValue": "devops" },
+  { "ParameterKey": "ImageId", "ParameterValue": "ami-0de716d6197524dd9" },
+  { "ParameterKey": "InstanceType", "ParameterValue": "t3.micro" },
+  { "ParameterKey": "DesiredCapacity", "ParameterValue": "1" },
+  { "ParameterKey": "MinSize", "ParameterValue": "1" },
+  { "ParameterKey": "MaxSize", "ParameterValue": "2" },
+  { "ParameterKey": "DBEndpoint", "ParameterValue": "db-mysqldb-z7jbtrfqlvcp.cocixhx6hohs.us-east-1.rds.amazonaws.com" },
+  { "ParameterKey": "HealthCheckPath", "ParameterValue": "/" }
+]
